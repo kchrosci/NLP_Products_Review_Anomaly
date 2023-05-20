@@ -16,8 +16,8 @@ anomalous_opinions = d_true["content"].values.tolist()
 normal_opinions = d_false["salusBcContent.description"].values.tolist()
 
 #CUDA
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-tensor_cuda = torch.tensor.to(device)
+device = torch.device(f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else 'cpu')
+torch.set_default_device(device)
 
 # Inicjalizacja modelu spaCy
 nlp = spacy.load('pl_core_news_md')
@@ -33,7 +33,7 @@ class OpinionDataset(Dataset):
     def __getitem__(self, idx):
         doc = nlp(self.opinions[idx])
         sequence = np.array([token.vector for token in doc])
-        sequence = tensor_cuda(sequence, dtype=torch.float32)
+        sequence = torch.tensor(sequence, dtype=torch.float32)
         return sequence
 
 # Tworzenie datasetów dla danych normalnych i opinii o podwójnej jakości
