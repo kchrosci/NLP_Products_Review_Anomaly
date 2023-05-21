@@ -1,32 +1,33 @@
-import time
-
+import re
 import spacy
 import numpy as np
 import torch
 import torch.nn as nn
-from torch import tanh
 from torch.utils.data import DataLoader, Dataset
 from pandas import read_csv
 
-#Początek pomiaru czasu
-start = time.time()
+# Wczytanie danych
+anomaly_opinions = read_csv('datasets/anomaly_opinions.csv', sep=';', encoding="cp1250")
+normal_opinions = read_csv('datasets/normal_opinions.csv', sep=';', encoding="cp1250")
 
-d_true = read_csv('datasets/doubleQuality.csv', sep=',')
-d_false = read_csv('datasets/nlp2023_v2.csv', sep=',')
+anomaly_opinions = anomaly_opinions["content"].values.tolist()
 
-# Przykładowe dane opinii (normalne i opinie o podwójnej jakości)
-d_true = d_true.loc[d_true['language'] == "POL"]
-d_false = d_false.loc[d_false['salusBcContent.language'] == "POL"]
-d_false = d_false.loc[d_false['salusBcContent.doubleQuality'] == False]
-anomalous_opinions = d_true["content"].values.tolist()
-normal_opinions = d_false["salusBcContent.description"].values.tolist()
+normal_opinions = normal_opinions["content"].values.tolist()
+normal_opinions = normal_opinions[:1000]
+normal_opinions = normal_opinions[:len(normal_opinions) - 100]
+
+normal_opinions_test = normal_opinions[len(normal_opinions) - 100:]
 
 # Inicjalizacja modelu spaCy
-nlp = spacy.load('pl_core_news_lg')
+nlp = spacy.load('pl_core_news_md')
 
-# CUDA
-device = torch.device(f'cuda:{torch.cuda.current_device()}' if torch.cuda.is_available() else 'cpu')
-torch.set_default_device(device)
+
+def preprocess_review(review):
+    # Usunięcie niepotrzebnych znaków
+    cleaned_review = re.sub(r'[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]', '', review)
+    # Tokenizacja tekstu
+    cleaned_review = cleaned_review.lower()
+    return nlp(cleaned_review)
 
 
 # Klasa Dataset do przechowywania danych opinii
@@ -38,30 +39,39 @@ class OpinionDataset(Dataset):
         return len(self.opinions)
 
     def __getitem__(self, idx):
-        doc = nlp(self.opinions[idx])
+        doc = preprocess_review(self.opinions[idx])
         sequence = np.array([token.vector for token in doc])
         sequence = torch.tensor(sequence, dtype=torch.float32)
         return sequence
 
 
 # Tworzenie datasetów dla danych normalnych i opinii o podwójnej jakości
+
 normal_dataset = OpinionDataset(normal_opinions)
-anomalous_dataset = OpinionDataset(anomalous_opinions)
+anomalous_dataset = OpinionDataset(anomaly_opinions)
+normal_test_dataset = OpinionDataset(normal_opinions_test)
 
 # Wyliczenie maksymalnego rozmiaru sekwencji wektorów
-max_seq_len = max(len(opinion) for opinion in normal_dataset.opinions + anomalous_dataset.opinions)
-
+max_seq_len1 = max(len(opinion) for opinion in normal_dataset.opinions)
+max_seq_len2 = max(len(opinion) for opinion in anomalous_dataset.opinions)
+max_seq_len3 = max(len(opinion) for opinion in normal_test_dataset.opinions)
+max_seq_len = max(max_seq_len1, max_seq_len2, max_seq_len3)
 
 # Wyrównanie rozmiarów sekwencji wektorów
 def pad_sequence(sequence, max_len):
-    padded_seq = torch.zeros(max_len, sequence.size(1))
-    padded_seq[:sequence.size(0)] = sequence
-    return padded_seq
+    if sequence.size(0) == 0:
+        return torch.zeros(max_len, 300)
+    else:
+        padded_seq = torch.zeros(max_len, sequence.size(1))
+        padded_seq[:sequence.size(0)] = sequence
+        return padded_seq
+
 
 
 # Dostosowanie sekwencji wektorów do maksymalnego rozmiaru
 normal_dataset = [pad_sequence(sequence, max_seq_len) for sequence in normal_dataset]
 anomalous_dataset = [pad_sequence(sequence, max_seq_len) for sequence in anomalous_dataset]
+normal_dataset_test = [pad_sequence(sequence, max_seq_len) for sequence in normal_test_dataset]
 
 
 # Definicja autoenkodera
@@ -97,7 +107,7 @@ autoencoder = Autoencoder(input_dim)
 
 # Definicja funkcji straty i optymalizatora
 criterion = nn.MSELoss()
-optimizer = torch.optim.SGD(autoencoder.parameters(), lr=0.005)
+optimizer = torch.optim.Adam(autoencoder.parameters(), lr=0.005)
 
 
 # Funkcja trenująca autoenkoder
@@ -124,7 +134,8 @@ def train_autoencoder(model, dataloader, criterion, optimizer, num_epochs):
     threshold = mean_loss + 2 * std_loss
     return threshold
 
-#Próg
+
+# Próg
 threshold = 0
 
 # Tworzenie DataLoader dla danych normalnych
@@ -132,9 +143,10 @@ normal_dataloader = DataLoader(normal_dataset, batch_size=32, shuffle=True)
 
 # Trenowanie autoenkodera
 threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, num_epochs=10)
-print("Wyznaczony próg: ",threshold)
+print("Wyznaczony próg: ", threshold)
 
 # Testowanie na danych opinii o podwójnej jakości
+print("TEST NA OPINIACH ŚWIADCZĄCYCH O PODWÓJNEJ JAKOŚCI")
 counter = 0
 with torch.no_grad():
     autoencoder.eval()
@@ -143,16 +155,30 @@ with torch.no_grad():
         outputs = autoencoder(inputs)
         mse_loss = nn.MSELoss(reduction='none')
         loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
-        print("Przewidziane wartości błędu dla opinii:", loss_values)
+        # print("Przewidziane wartości błędu dla opinii:", loss_values)
         is_anomalous = np.where(loss_values > threshold, 1, 0)
         if is_anomalous:
             counter = counter + 1
-        print("Czy opinia jest oznaczona jako anomalia:", np.any(is_anomalous))
+        # print("Czy opinia jest oznaczona jako anomalia:", np.any(is_anomalous))
 
-#Koniec pomiaru czasu
-elapsed = time.time() - start
+print("Wykryty procent anomalii: ", counter / len(anomaly_opinions))
+print("Liczba opinii świadczących o podwójnej jakości: ", len(anomaly_opinions))
+print("Liczba normalnych opinii wykorzystanych do treningu: ", len(normal_opinions))
 
-print("Wykryty procent anomalii: ",counter/len(anomalous_opinions))
-print("Liczba opinii świadczących o podwójnej jakości: ",len(anomalous_opinions))
-print("Liczba normalnych opinii: ",len(normal_opinions))
-print("Czas trwania tokenizacji, szkolenia i testu: ", elapsed)
+print("TEST NA NORMALNYCH OPINIACH")
+counter = 0
+with torch.no_grad():
+    autoencoder.eval()
+    for batch in DataLoader(normal_dataset_test, batch_size=1):
+        inputs = batch.float()
+        outputs = autoencoder(inputs)
+        mse_loss = nn.MSELoss(reduction='none')
+        loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
+        # print("Przewidziane wartości błędu dla opinii:", loss_values)
+        is_anomalous = np.where(loss_values > threshold, 1, 0)
+        if is_anomalous:
+            counter = counter + 1
+        # print("Czy opinia jest oznaczona jako anomalia:", np.any(is_anomalous))
+
+print("Procent błędnie wykrytych anomalii: ", counter / len(normal_dataset_test))
+print("Liczba normalnych opinii wykorzystanych do testu: ", len(normal_dataset_test))
