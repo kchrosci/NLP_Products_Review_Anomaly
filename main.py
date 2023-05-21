@@ -21,6 +21,8 @@ normal_opinions_test = normal_opinions[len(normal_opinions) - 100:]
 # Inicjalizacja modelu spaCy
 nlp = spacy.load('pl_core_news_md')
 
+# Inicjalizacja pustej macierzy pomyłek
+cm = torch.zeros((2, 2), dtype=torch.int)
 
 def preprocess_review(review):
     # Usunięcie niepotrzebnych znaków
@@ -78,25 +80,34 @@ normal_dataset_test = [pad_sequence(sequence, max_seq_len) for sequence in norma
 class Autoencoder(nn.Module):
     def __init__(self, input_dim):
         super(Autoencoder, self).__init__()
-        self.fc1 = nn.Linear(input_dim, int(input_dim / 2))
-        self.fc2 = nn.Linear(int(input_dim / 2), int(input_dim / 4))
-        self.fc3 = nn.Linear(int(input_dim / 4), int(input_dim / 2))
-        self.fc4 = nn.Linear(int(input_dim / 2), input_dim)
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, input_dim//2),
+            nn.Tanh(),
+            nn.Linear(input_dim//2, 64),
+            nn.Tanh(),
+            nn.Linear(64, 32),
+            nn.Tanh(),
+            nn.Linear(32, 8),
+        )
 
-    def encode(self, x):
-        z = torch.tanh(self.fc1(x))
-        z = torch.tanh(self.fc2(z))  # latent in [-1,+1]
-        return z
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(8, 32),
+            nn.Tanh(),
+            nn.Linear(32, 64),
+            nn.Tanh(),
+            nn.Linear(64, input_dim//2),
+            nn.Tanh(),
+            nn.Linear(input_dim//2, input_dim),
+            nn.Sigmoid()
+        )
 
-    def decode(self, x):
-        z = torch.tanh(self.fc3(x))
-        z = torch.sigmoid(self.fc4(z))  # [0.0, 1.0]
-        return z
+    def forward(self, inputs):
+        codes = self.encoder(inputs)
+        decoded = self.decoder(codes)
 
-    def forward(self, x):
-        z = self.encode(x)
-        z = self.decode(z)
-        return z  # in [0.0, 1.0]
+        return decoded
 
 
 # Parametry modelu
@@ -107,7 +118,7 @@ autoencoder = Autoencoder(input_dim)
 
 # Definicja funkcji straty i optymalizatora
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(autoencoder.parameters(), lr=0.005)
+optimizer = torch.optim.Adam(autoencoder.parameters(), lr=0.001)
 
 
 # Funkcja trenująca autoenkoder
@@ -145,27 +156,6 @@ normal_dataloader = DataLoader(normal_dataset, batch_size=32, shuffle=True)
 threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, num_epochs=10)
 print("Wyznaczony próg: ", threshold)
 
-# Testowanie na danych opinii o podwójnej jakości
-print("TEST NA OPINIACH ŚWIADCZĄCYCH O PODWÓJNEJ JAKOŚCI")
-counter = 0
-with torch.no_grad():
-    autoencoder.eval()
-    for batch in DataLoader(anomalous_dataset, batch_size=1):
-        inputs = batch.float()
-        outputs = autoencoder(inputs)
-        mse_loss = nn.MSELoss(reduction='none')
-        loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
-        # print("Przewidziane wartości błędu dla opinii:", loss_values)
-        is_anomalous = np.where(loss_values > threshold, 1, 0)
-        if is_anomalous:
-            counter = counter + 1
-        # print("Czy opinia jest oznaczona jako anomalia:", np.any(is_anomalous))
-
-print("Wykryty procent anomalii: ", counter / len(anomaly_opinions))
-print("Liczba opinii świadczących o podwójnej jakości: ", len(anomaly_opinions))
-print("Liczba normalnych opinii wykorzystanych do treningu: ", len(normal_opinions))
-
-print("TEST NA NORMALNYCH OPINIACH")
 counter = 0
 with torch.no_grad():
     autoencoder.eval()
@@ -174,11 +164,112 @@ with torch.no_grad():
         outputs = autoencoder(inputs)
         mse_loss = nn.MSELoss(reduction='none')
         loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
-        # print("Przewidziane wartości błędu dla opinii:", loss_values)
-        is_anomalous = np.where(loss_values > threshold, 1, 0)
-        if is_anomalous:
-            counter = counter + 1
-        # print("Czy opinia jest oznaczona jako anomalia:", np.any(is_anomalous))
+        is_anomalous = torch.tensor(np.where(loss_values > threshold, 1, 0))
+        counter += torch.sum(is_anomalous).item()
+        cm[0][is_anomalous] += 1
 
-print("Procent błędnie wykrytych anomalii: ", counter / len(normal_dataset_test))
-print("Liczba normalnych opinii wykorzystanych do testu: ", len(normal_dataset_test))
+# Testowanie na danych opinii o podwójnej jakości
+with torch.no_grad():
+    autoencoder.eval()
+    for batch in DataLoader(anomalous_dataset, batch_size=1):
+        inputs = batch.float()
+        outputs = autoencoder(inputs)
+        mse_loss = nn.MSELoss(reduction='none')
+        loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
+        is_anomalous = torch.tensor(np.where(loss_values > threshold, 1, 0))
+        counter += torch.sum(is_anomalous).item()
+        cm[1][is_anomalous] += 1
+
+# Obliczenie sumy wierszy i kolumn macierzy pomyłek
+sum_rows = torch.sum(cm, dim=1)
+sum_cols = torch.sum(cm, dim=0)
+
+# Obliczenie liczby prawdziwie negatywnych, fałszywie negatywnych, fałszywie pozytywnych i prawdziwie pozytywnych
+tn = cm[0][0]
+fn = cm[0][1]
+fp = cm[1][0]
+tp = cm[1][1]
+
+# Wyświetlenie macierzy pomyłek
+print("Macierz pomyłek:")
+print(cm)
+print()
+
+# Wyświetlenie innych metryk oceny
+print("Liczba prawdziwie negatywnych (TN):", tn.item())
+print("Liczba fałszywie negatywnych (FN):", fn.item())
+print("Liczba fałszywie pozytywnych (FP):", fp.item())
+print("Liczba prawdziwie pozytywnych (TP):", tp.item())
+print()
+
+accuracy = (tn + tp) / (tn + fn + fp + tp)
+print("Accuracy:", accuracy.item())
+
+precision = tp / (tp + fp)
+print("Precision:", precision.item())
+
+recall = tp / (tp + fn)
+print("Recall:", recall.item())
+
+f1_score = 2 * (precision * recall) / (precision + recall)
+print("F1-Score:", f1_score.item())
+
+
+
+
+
+
+# # Testowanie na danych opinii o podwójnej jakości
+# print("TEST NA OPINIACH ŚWIADCZĄCYCH O PODWÓJNEJ JAKOŚCI")
+# counter = 0
+# total_anomalies = 0
+# with torch.no_grad():
+#     autoencoder.eval()
+#     for batch in DataLoader(anomalous_dataset, batch_size=1):
+#         inputs = batch.float()
+#         outputs = autoencoder(inputs)
+#         mse_loss = nn.MSELoss(reduction='none')
+#         loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
+#         is_anomalous = np.where(loss_values > threshold, 1, 0)
+#         counter += np.sum(is_anomalous)
+#         total_anomalies += len(is_anomalous)
+#
+# # Obliczanie metryk
+# recall = counter / total_anomalies
+# precision = counter / len(anomaly_opinions)
+# f1_score = 2 * (precision * recall) / (precision + recall)
+#
+# print("Czułość (recall): ", recall)
+# print("Precyzja (precision): ", precision)
+# print("F1-score: ", f1_score)
+# print("Liczba opinii świadczących o podwójnej jakości: ", len(anomaly_opinions))
+# print("Liczba normalnych opinii wykorzystanych do treningu: ", len(normal_opinions))
+# print("                                                     ")
+#
+#
+# print("TEST NA NORMALNYCH OPINIACH")
+# counter = 0
+# total_anomalies = 0
+# with torch.no_grad():
+#     autoencoder.eval()
+#     for batch in DataLoader(normal_test_dataset, batch_size=1):
+#         inputs = batch.float()
+#         outputs = autoencoder(inputs)
+#         mse_loss = nn.MSELoss(reduction='none')
+#         loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2)).numpy()
+#         is_anomalous = np.where(loss_values > threshold, 1, 0)
+#         counter += np.sum(is_anomalous)
+#         total_anomalies += len(is_anomalous)
+#
+# # Obliczanie metryk
+# recall = counter / total_anomalies
+# precision = counter / len(anomaly_opinions)
+# f1_score = 2 * (precision * recall) / (precision + recall)
+#
+# print("Czułość (recall): ", recall)
+# print("Precyzja (precision): ", precision)
+# print("F1-score: ", f1_score)
+# print("Liczba opinii świadczących o podwójnej jakości: ", len(anomaly_opinions))
+# print("Liczba normalnych opinii wykorzystanych do testu: ", len(normal_dataset_test))
+
+# Testowanie na normalnych danych opinii
