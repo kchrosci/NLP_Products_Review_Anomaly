@@ -7,8 +7,8 @@ from torch.utils.data import DataLoader, Dataset
 from pandas import read_csv
 
 # Wczytanie danych
-anomaly_opinions = read_csv('datasets/anomaly_opinions.csv', sep=';', encoding="cp1250")
-normal_opinions = read_csv('datasets/normal_opinions.csv', sep=';', encoding="cp1250")
+anomaly_opinions = read_csv('csv_data/anomaly_opinions.csv', sep=',')
+normal_opinions = read_csv('csv_data/normal_opinions.csv', sep=',')
 
 anomaly_opinions = anomaly_opinions["content"].values.tolist()
 
