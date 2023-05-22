@@ -13,10 +13,10 @@ normal_opinions = read_csv('csv_data/normal_opinions.csv', sep=',')
 anomaly_opinions = anomaly_opinions["content"].values.tolist()
 
 normal_opinions = normal_opinions["content"].values.tolist()
-normal_opinions = normal_opinions[:23000]
-normal_opinions = normal_opinions[:len(normal_opinions) - 1000]
+normal_opinions = normal_opinions[:600]
+normal_opinions = normal_opinions[:len(normal_opinions) - 50]
 
-normal_opinions_test = normal_opinions[len(normal_opinions) - 1000:]
+normal_opinions_test = normal_opinions[len(normal_opinions) - 50:]
 
 # Inicjalizacja modelu spaCy
 nlp = spacy.load('pl_core_news_md')
