@@ -13,7 +13,7 @@ normal_opinions = read_csv('csv_data/normal_opinions.csv', sep=',')
 anomaly_opinions = anomaly_opinions["content"].values.tolist()
 
 normal_opinions = normal_opinions["content"].values.tolist()
-normal_opinions = normal_opinions[:20000]
+normal_opinions = normal_opinions[:23000]
 normal_opinions = normal_opinions[:len(normal_opinions) - 1000]
 
 normal_opinions_test = normal_opinions[len(normal_opinions) - 1000:]
