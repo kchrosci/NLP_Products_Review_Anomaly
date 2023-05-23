@@ -7,16 +7,15 @@ from torch.utils.data import DataLoader, Dataset
 from pandas import read_csv
 
 # Wczytanie danych
-anomaly_opinions = read_csv('csv_data/anomaly_opinions.csv', sep=',')
-normal_opinions = read_csv('csv_data/normal_opinions.csv', sep=',')
+anomaly_opinions = read_csv('csv_data/full_dataset_translated/anomaly_opinions_full_dataset.csv', sep=',')
+normal_opinions = read_csv('csv_data/preprocesed_files/normal_opinions.csv', sep=',')
 
 anomaly_opinions = anomaly_opinions["content"].values.tolist()
 
 normal_opinions = normal_opinions["content"].values.tolist()
-normal_opinions = normal_opinions[:600]
-normal_opinions = normal_opinions[:len(normal_opinions) - 50]
+normal_opinions_test = normal_opinions[20832:]
 
-normal_opinions_test = normal_opinions[len(normal_opinions) - 50:]
+normal_opinions = normal_opinions[:20831]
 
 # Inicjalizacja modelu spaCy
 nlp = spacy.load('pl_core_news_md')
@@ -79,13 +78,17 @@ class Autoencoder(nn.Module):
     def __init__(self, input_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, input_dim // 2),
-            nn.Linear(input_dim // 2, input_dim // 4),
+            nn.Linear(input_dim, 1024),
+            nn.Linear(1024, 512),
+            nn.Linear(512, 256),
+            nn.Linear(256, 128),
             nn.ReLU()
         )
         self.decoder = nn.Sequential(
-            nn.Linear(input_dim // 4, input_dim // 2),
-            nn.Linear(input_dim // 2, input_dim),
+            nn.Linear(128, 256),
+            nn.Linear(256, 512),
+            nn.Linear(512, 1024),
+            nn.Linear(1024, input_dim),
             nn.Sigmoid()
         )
 
