@@ -7,26 +7,28 @@ from torch.utils.data import DataLoader, Dataset
 from pandas import read_csv
 
 # Wczytanie danych
-anomaly_opinions = read_csv('csv_data/full_dataset_translated/anomaly_opinions_full_dataset.csv', sep=',')
+anomaly_opinions = read_csv('csv_data/preprocesed_files/anomaly_opinions.csv', sep=',')
 normal_opinions = read_csv('csv_data/preprocesed_files/normal_opinions.csv', sep=',')
-
 anomaly_opinions = anomaly_opinions["content"].values.tolist()
-
 normal_opinions = normal_opinions["content"].values.tolist()
-normal_opinions_test = normal_opinions[20832:]
 
-normal_opinions = normal_opinions[:20831]
+#Podział normalnych opinii na część testową i treningowa, liczba normalnych opinii 12 936,do treningu wykorzystano 90%
+normal_opinions_test = normal_opinions[11601:]
+normal_opinions = normal_opinions[:11600]
+
+print("Wykorzystane normalne opinie: ", len(normal_opinions))
+print("Wykorzystane anomalie: ", len(anomaly_opinions))
 
 # Inicjalizacja modelu spaCy
 nlp = spacy.load('pl_core_news_md')
 
-
+#Upraszczanie opini przed dodaniem do DataSet (lower case, tylko litery)
 def preprocess_review(review):
     # Usunięcie niepotrzebnych znaków
     cleaned_review = re.sub(r'[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]', '', review)
     # Tokenizacja tekstu
     cleaned_review = cleaned_review.lower()
-    return nlp(cleaned_review)
+    return cleaned_review
 
 
 # Klasa Dataset do przechowywania danych opinii
@@ -37,15 +39,20 @@ class OpinionDataset(Dataset):
     def __len__(self):
         return len(self.opinions)
 
+    #Metoda get_item bierze pojedyńczą opinie wykonuje na niej preprocess_review, następnie wykorzystuję metode nlp z biblioteki Spacy
+    #do tokenizacji. Następnie wyciąga wektor word embeddings po tokenizacji i z jego wykorzystaniem tworzy tensor. Ostatnim korkiem
+    #jest normalizacja tensora z wykorzystaniem normalizacji norma L1 (Manhattan norm)
     def __getitem__(self, idx):
-        doc = preprocess_review(self.opinions[idx])
+        doc = nlp(preprocess_review(self.opinions[idx]))
         sequence = np.array([token.vector for token in doc])
         sequence = torch.tensor(sequence, dtype=torch.float32)
+
+        # Normalizacja wektorów
+        #sequence = nn.functional.normalize(sequence, p=1, dim=1)
         return sequence
 
 
-# Tworzenie datasetów dla danych normalnych i opinii o podwójnej jakości
-
+# Tworzenie datasetów dla danych normalnych treningowych, testowych i opinii o podwójnej jakości
 normal_dataset = OpinionDataset(normal_opinions)
 anomalous_dataset = OpinionDataset(anomaly_opinions)
 normal_test_dataset = OpinionDataset(normal_opinions_test)
@@ -55,7 +62,7 @@ max_seq_len1 = max(len(opinion) for opinion in normal_dataset.opinions)
 max_seq_len2 = max(len(opinion) for opinion in anomalous_dataset.opinions)
 max_seq_len3 = max(len(opinion) for opinion in normal_test_dataset.opinions)
 max_seq_len = max(max_seq_len1, max_seq_len2, max_seq_len3)
-
+print("Maksymalna długość opinii: ",max_seq_len)
 
 # Wyrównanie rozmiarów sekwencji wektorów
 def pad_sequence(sequence, max_len):
@@ -78,17 +85,15 @@ class Autoencoder(nn.Module):
     def __init__(self, input_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 1024),
-            nn.Linear(1024, 512),
-            nn.Linear(512, 256),
-            nn.Linear(256, 128),
-            nn.ReLU()
+            nn.Linear(input_dim, input_dim // 2),
+            nn.ReLU(),
+            nn.Linear(input_dim // 2, input_dim // 4),
+            nn.ReLU(),
         )
         self.decoder = nn.Sequential(
-            nn.Linear(128, 256),
-            nn.Linear(256, 512),
-            nn.Linear(512, 1024),
-            nn.Linear(1024, input_dim),
+            nn.Linear(input_dim // 4, input_dim // 2),
+            nn.ReLU(),
+            nn.Linear(input_dim // 2, input_dim),
             nn.Sigmoid()
         )
 
@@ -98,7 +103,7 @@ class Autoencoder(nn.Module):
         return decoded
 
 
-# Parametry modelu
+# Wielkość wejściowa
 input_dim = normal_dataset[0].size(1)
 
 # Inicjalizacja modelu autoenkodera
@@ -106,22 +111,26 @@ autoencoder = Autoencoder(input_dim)
 
 # Definicja funkcji straty i optymalizatora
 criterion = nn.MSELoss()
-optimizer = torch.optim.Adam(autoencoder.parameters(), lr=0.0005)
+optimizer = torch.optim.Adam(autoencoder.parameters(), lr=0.0001)
 
-# Funkcja trenująca autoenkoder
 # Inicjalizacja pustej macierzy pomyłek
 cm = torch.zeros((2, 2), dtype=torch.int)
 
 
-def calc_threshold(values):
-    # Obliczenie progu
-    mean_loss = torch.mean(values)
-    std_loss = torch.std(values)
-    return mean_loss + 2 * std_loss
+# Funkcja obliczająca próg na podstawie średniej i odchylenia
+# def calc_threshold(values):
+#     # Obliczenie progu
+#     mean_loss = torch.mean(values)
+#     std_loss = torch.std(values)
+#     return mean_loss + 2 * std_loss
+
+# Funkcja obliczająca próg na podstawie kwantyla
+def calc_threshold(values, quantile):
+    return torch.quantile(values, quantile)
 
 
 # Funkcja trenująca autoenkodera
-def train_autoencoder(model, dataloader, criterion, optimizer, num_epochs):
+def train_autoencoder(model, dataloader, criterion, optimizer, quantile, num_epochs):
     model.train()
     for epoch in range(num_epochs):
         running_loss = 0.0
@@ -139,7 +148,7 @@ def train_autoencoder(model, dataloader, criterion, optimizer, num_epochs):
                 autoencoder.eval()
                 mse_loss = nn.MSELoss(reduction='none')
                 loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2))
-                is_anomalous = torch.where(loss_values > calc_threshold(loss_values), 1, 0)
+                is_anomalous = torch.where(loss_values > calc_threshold(loss_values, quantile), 1, 0)
 
                 for label in is_anomalous:
                     cm[label][label] += 1
@@ -147,14 +156,17 @@ def train_autoencoder(model, dataloader, criterion, optimizer, num_epochs):
         epoch_loss = running_loss / len(dataloader)
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}")
 
-    return calc_threshold(loss_values)
+    return calc_threshold(loss_values, quantile)
 
 
 # Tworzenie DataLoader dla danych normalnych
 normal_dataloader = DataLoader(normal_dataset, batch_size=32, shuffle=True)
 
+# Ustal wartość kwantyla
+quantile = 0.87
+
 # Trenowanie autoenkodera
-threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, num_epochs=10)
+threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, quantile, num_epochs=10)
 print("Wyznaczony próg: ", threshold.real)
 print("")
 

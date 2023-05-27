@@ -1,37 +1,35 @@
 import pandas as pd
 import re
 
-def remove_duplicates_and_save(input_file, output_file):
-    # Wczytanie danych z pliku CSV z odpowiednimi ustawieniami
-    df = pd.read_csv(input_file, sep=',', quotechar='"', lineterminator='\n')
-
-    # Połączenie opinii, które zajmują dwie linie
-    df['content'] = df['content'].str.cat(df.groupby(df['content'].index // 2)['content'].transform(lambda x: ' '.join(x)))
-
-    # Usunięcie duplikatów na podstawie przetworzonej kolumny "content"
-    df['content_processed'] = df['content'].str.lower().apply(lambda x: re.sub(r'[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]', '', x))
-    df = df.drop_duplicates(subset='content_processed')
-
-    # Usunięcie dodatkowej kolumny
-    df = df.drop(columns='content_processed')
+def drop_unused_columns_anomaly(input_file, output_file):
+    df = pd.read_csv(input_file, sep=',')
+    df = df.loc[df['language'] == "POL"]
+    df = df.loc[df['doubleQuality'] == 1]
+    selected_columns = ['content', 'doubleQuality']
+    df = df.drop(df.columns.difference(selected_columns), axis=1)
     df['content'] = df['content'].str.lower().apply(lambda x: re.sub(r'[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]', '', x))
-    # Usunięcie linii o zawartości "
-    df = df[df['content'] != '"']
-
-    # Usunięcie znaków nowej linii i spacji na początku i końcu każdej linii
-    df['content'] = df['content'].str.replace('\n', ' ')
-    df['content'] = df['content'].str.replace('\s+', ' ').str.strip()
-
-    # Pominięcie linii krótszych niż 2 znaki
-    df = df[df['content'].str.len() >= 2]
-
-    # Zapis przetworzonego pliku CSV
+    df = df.drop_duplicates(subset=['content'], keep='first')
     df.to_csv(output_file, index=False)
 
-    print("Usunięto duplikaty, przetworzono tekst i zapisano przetworzony plik:", output_file)
+def drop_unused_columns_normal(input_file, output_file):
+    df = pd.read_csv(input_file, sep=',')
+    df = df.loc[df['language'] == "POL"]
+    selected_columns = ['content', 'doubleQuality']
+    df = df.drop(df.columns.difference(selected_columns), axis=1)
+    df['doubleQuality'] = df['doubleQuality'].replace({True: 1, False: 0})
+    df['content'] = df['content'].str.lower().apply(lambda x: re.sub(r'[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]', '', x))
+    df = df.drop_duplicates(subset=['content'], keep='first')
+    df = df[(df['content'].str.len() >= 2) & (df['content'].str.len() <= 1000)]
+    df.to_csv(output_file, index=False)
 
 
-input_file = "csv_data/training_dataset/normal_opinions.csv"
-output_file = "csv_data/preprocesed_files/normal_opinions.csv"
+input_normal_file = "csv_data/full_dataset_translated/normal_opinions_full_dataset.csv"
+input_anomaly_file = "csv_data/full_dataset_translated/anomaly_opinions_full_dataset.csv"
+output_normal_file = "csv_data/preprocesed_files/normal_opinions.csv"
+output_anomaly_file = "csv_data/preprocesed_files/anomaly_opinions.csv"
 
-remove_duplicates_and_save(input_file, output_file)
+drop_unused_columns_normal(input_normal_file, output_normal_file)
+drop_unused_columns_anomaly(input_anomaly_file, output_anomaly_file)
+
+
+
