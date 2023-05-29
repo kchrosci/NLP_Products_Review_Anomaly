@@ -29,7 +29,7 @@ output_normal_file = "csv_data/preprocesed_files/normal_opinions.csv"
 output_anomaly_file = "csv_data/preprocesed_files/anomaly_opinions.csv"
 
 drop_unused_columns_normal(input_normal_file, output_normal_file)
-drop_unused_columns_anomaly(input_anomaly_file, output_anomaly_file)
+#drop_unused_columns_anomaly(input_anomaly_file, output_anomaly_file)
 
 
 
