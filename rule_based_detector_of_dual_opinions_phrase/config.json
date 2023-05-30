@@ -1,6 +1,15 @@
 {
     "spacy": "pl_core_news_md",
-    "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
-    "normal_opinions": "csv_data/training_dataset/normal_opinions.csv",
-    "all_opinions": "csv_data/preprocesed_files/all_opinions_merged.csv"
+    "anomaly_opinions": "../csv_data/preprocesed_files/anomaly_opinions.csv",
+    "normal_opinions": "../csv_data/training_dataset/normal_opinions.csv",
+    "all_opinions": "../csv_data/preprocesed_files/all_opinions_merged.csv",
+    "term_list": ["lepszy niż", "lepszy od", "nie ma już", "na rynku", "w polskich", "lepszej jakosci", "od niemca", "nad polskimi",
+             "tak dobrze jak", "jak niemiecki", "polskiej wersji", "nad polskimi", "jak niemiecki", "najlepszy bo", "polski produkt",
+             "niemieckie wydanie", "jest Niemieckim", "oryginalne niemieckie", "z niemiec", "to niemiecki", "niemiecka chemia",
+             "niemiecka jakość", "oryginalny produkt", "rynek zachodni", "lepsza niż", "rynek polski", "zachodni rynek",
+             "niemiecki rynek", "jak polski", "wyprodukowany w", "produkowany w niemczech", "nie dorównują", "polskiej wersji", "europę wschodnią"],
+    "true_positives" : 0,
+    "false_positives" : 0,
+    "true_negatives" : 0,
+    "false_negatives" : 0       
 }

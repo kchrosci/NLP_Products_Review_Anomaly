@@ -1,6 +1,19 @@
 {
     "spacy": "pl_core_news_md",
-    "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
-    "normal_opinions": "csv_data/training_dataset/normal_opinions.csv",
-    "all_opinions": "csv_data/preprocesed_files/all_opinions_merged.csv"
+    "anomaly_opinions": "../csv_data/preprocesed_files/anomaly_opinions.csv",
+    "normal_opinions": "../csv_data/training_dataset/normal_opinions.csv",
+    "all_opinions": "../csv_data/preprocesed_files/all_opinions_merged.csv",
+    "manually_selected_lemmas": [
+        "niż",
+        "lepszy",
+        "lepiej",
+        "rynek",
+        "jakość",
+        "znacznie",
+        "od"
+    ],
+    "true_positives": 0,
+    "false_positives": 0,
+    "true_negatives": 0,
+    "false_negatives": 0
 }

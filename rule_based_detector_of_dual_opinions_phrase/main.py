@@ -1,14 +1,8 @@
-import pandas as pd
-import spacy
-import matplotlib.pyplot as plt
-import seaborn as sns
-import random
-from tabulate import tabulate
-from collections import Counter
+import calculations as calc
 
-def main(mode):
-    if mode == "test_classifiers":
-        print()
-
+def main():
+    opinions_list = calc.load_opinions()
+    term_list = calc.get_term_list()
+    calc.rule_based_double_quality_search(opinions_list, term_list)
 if __name__ == "__main__":
     main()
