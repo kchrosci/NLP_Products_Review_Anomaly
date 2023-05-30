@@ -18,7 +18,7 @@ Dane, na których pracujemy są dostarczone w formie zbioru recenzji produktów 
 * anomaly_opinions - same podwójne opinie
 * noraml_opinions - same normalne opinie
 
-# Metody i techniki
+## Metody i techniki
 * Zastosowano różne metody i techniki przetwarzania języka naturalnego, takie jak tokenizacja, usuwanie stopwords, stemming, wektoryzacja tekstu oraz algorytmy uczenia maszynowego, w tym model oparty na sieciach neuronowych (Autoencoder). 
 * Skorzystano również z regułowego wykrywania podwójnych opinii, które pozwolają nam porównać działania modelu.
 
@@ -41,7 +41,7 @@ Do implementacji projektu użyjemy języka Python oraz popularnych bibliotek NLP
 ## Wymagania
 Do uruchomienia projektu wymagane są następujące zależności:
 
-Python 3.7 lub nowszy
+Python 3.9 oraz nowszy
 Biblioteki Python: spaCy, scikit-learn, PyTorch, matplotlib, seaborn
 
 ## Instrukcje uruchomienia
