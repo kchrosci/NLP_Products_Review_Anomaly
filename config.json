@@ -1,0 +1,17 @@
+{
+    "spacy": "pl_core_news_lg",
+    "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
+    "normal_opinions": "csv_data/preprocesed_files/normal_opinions.csv",
+    "quantile": 0.9,
+    "epochs": 10,
+    "lr": 0.0005,
+    "batch_size_train": 32,
+    "batch_size_test": 1,
+    "test_size": 0.2,
+    "regex": "r'[^a-zA-Z\u2500\u00e0\u2500\u00e7\u2500\u00d6\u253c\u00e9\u253c\u00e4\u251c\u2502\u253c\u00f8\u253c\u2551\u253c\u255d\u2500\u00e4\u2500\u00e5\u2500\u00ff\u253c\u00fc\u253c\u00e2\u251c\u00f4\u253c\u00dc\u253c\u2563\u253c\u2557\\s]'",
+    "spacy_size": 300,
+    "seed": 421,
+    "content": "content",
+    "threshold": 0.1109878271818161,
+    "reduction": "none"
+}
