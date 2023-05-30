@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader, Dataset
 from pandas import read_csv
 from sklearn.model_selection import train_test_split
 from config_loader import ConfigLoader
+from torch.distributions import Normal
+
 
 # Wczytywanie configu
 config = ConfigLoader("config.json")
@@ -54,7 +56,7 @@ class OpinionDataset(Dataset):
         doc = nlp(preprocess_review(self.opinions[idx]))
         sequence = np.array([token.vector for token in doc])
         sequence = torch.tensor(sequence, dtype=torch.float32)
-        sequence = nn.functional.normalize(sequence, p=1, dim=1)
+        #sequence = nn.functional.normalize(sequence, p=2, dim=1)
         return sequence
 
 
@@ -67,7 +69,7 @@ normal_dataset_test = OpinionDataset(normal_opinions_test)
 # Wyrównanie rozmiarów sekwencji wektorów
 def pad_sequence(sequence, max_len):
     if sequence.size(0) == 0:
-        return torch.zeros(max_len, )
+        return torch.zeros(max_len, config.get_value("spacy_size"))
     else:
         padded_seq = torch.zeros(max_len, sequence.size(1))
         padded_seq[:sequence.size(0)] = sequence
@@ -96,8 +98,6 @@ normal_dataset = [pad_sequence(sequence, max_seq_len) for sequence in normal_dat
 anomaly_dataset = [pad_sequence(sequence, max_seq_len) for sequence in anomaly_dataset]
 normal_dataset_test = [pad_sequence(sequence, max_seq_len) for sequence in normal_dataset_test]
 
-
-# Definicja autoenkodera
 class Autoencoder(nn.Module):
     def __init__(self, input_dim):
         super(Autoencoder, self).__init__()
@@ -141,6 +141,12 @@ cm = torch.zeros((2, 2), dtype=torch.int)
 def calc_threshold(values, quantile):
     return torch.quantile(values, quantile)
 
+def calc_threshold2(values):
+    mu = values.mean()
+    std = values.std()
+    gaussian = Normal(mu, std)
+    threshold = mu + 3 * std
+    return threshold
 
 # Funkcja trenująca autoenkodera
 def train_autoencoder(model, dataloader, criterion, optimizer, quantile, num_epochs):
@@ -161,7 +167,7 @@ def train_autoencoder(model, dataloader, criterion, optimizer, quantile, num_epo
                 model.eval()
                 mse_loss = nn.MSELoss(reduction='none')
                 loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2))
-                is_anomalous = torch.where(loss_values > calc_threshold(loss_values, quantile), 1, 0)
+                is_anomalous = torch.where(loss_values > calc_threshold2(loss_values), 1, 0)
 
                 for label in is_anomalous:
                     cm[label][label] += 1
@@ -169,7 +175,7 @@ def train_autoencoder(model, dataloader, criterion, optimizer, quantile, num_epo
         epoch_loss = running_loss / len(dataloader)
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}")
 
-    return calc_threshold(loss_values, quantile)
+    return model, calc_threshold2(loss_values)
 
 
 # Tworzenie DataLoader dla danych normalnych
@@ -179,7 +185,7 @@ normal_dataloader = DataLoader(normal_dataset, batch_size=config.get_value("batc
 quantile = config.get_value("quantile")
 
 # Trenowanie autoenkodera
-threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, quantile, num_epochs=config.get_value("epochs"))
+autoencoder, threshold = train_autoencoder(autoencoder, normal_dataloader, criterion, optimizer, quantile, num_epochs=config.get_value("epochs"))
 
 print("Wyznaczony próg podczas treningu: ", threshold.item())
 print("")
