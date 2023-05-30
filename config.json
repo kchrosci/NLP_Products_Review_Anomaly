@@ -12,5 +12,6 @@
     "spacy_size": 300,
     "seed": 421,
     "content": "content",
-    "threshold": 0.1109878271818161
+    "threshold": 0.1109878271818161,
+    "reduction": "none"
 }

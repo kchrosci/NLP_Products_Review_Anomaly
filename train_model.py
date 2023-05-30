@@ -134,7 +134,7 @@ def train_autoencoder(model, dataloader, criterion, optimizer, quantile, cm, num
             # Obliczanie macierzy pomyłek
             with torch.no_grad():
                 model.eval()
-                mse_loss = nn.MSELoss(reduction='none')
+                mse_loss = nn.MSELoss(reduction=config.get_value("reduction"))
                 loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2))
                 is_anomalous = torch.where(loss_values > calc_threshold(loss_values, quantile), 1, 0)
 
@@ -199,7 +199,7 @@ def test_normal_opinions(autoencoder, normal_dataset_test, threshold):
         for batch in DataLoader(normal_dataset_test, batch_size=config.get_value("batch_size_test")):
             inputs = batch.float()
             outputs = autoencoder(inputs)
-            mse_loss = nn.MSELoss(reduction='none')
+            mse_loss = nn.MSELoss(reduction=config.get_value("reduction"))
             loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2))
             is_anomalous = torch.where(loss_values > threshold, 1, 0)
             cm[0][is_anomalous] += 1
@@ -217,7 +217,7 @@ def test_anomaly_opinions(autoencoder, anomaly_dataset, threshold):
         for batch in DataLoader(anomaly_dataset, batch_size=config.get_value("batch_size_test")):
             inputs = batch.float()
             outputs = autoencoder(inputs)
-            mse_loss = nn.MSELoss(reduction='none')
+            mse_loss = nn.MSELoss(reduction=config.get_value("reduction"))
             loss_values = mse_loss(outputs, inputs).mean(dim=(1, 2))
             is_anomalous = torch.where(loss_values > threshold, 1, 0)
             print("Anomalia nr: ", counter)
