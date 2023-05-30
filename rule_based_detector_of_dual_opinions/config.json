@@ -1,0 +1,6 @@
+{
+    "spacy": "pl_core_news_md",
+    "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
+    "normal_opinions": "csv_data/training_dataset/normal_opinions.csv",
+    "all_opinions": "csv_data/preprocesed_files/all_opinions_merged.csv"
+}
