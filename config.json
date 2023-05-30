@@ -1,7 +1,7 @@
 {
     "spacy": "pl_core_news_lg",
     "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
-    "normal_opinions": "csv_data/preprocesed_files/normal_opinions.csv",
+    "normal_opinions": "csv_data/training_dataset/normal_opinions.csv",
     "quantile": 0.9,
     "epochs": 10,
     "lr": 0.0005,
@@ -12,5 +12,5 @@
     "spacy_size": 300,
     "seed": 421,
     "content": "content",
-    "threshold": 0.9668046236038208
+    "threshold": 0.2693154513835907
 }

@@ -19,7 +19,7 @@ nlp = spacy.load(config.get_value("spacy"))
 # Ustawienie seed'a
 SEED = config.get_value("seed")
 torch.manual_seed(SEED)
-
+np.random.seed(SEED)
 
 # Klasa Dataset do przechowywania danych opinii
 class OpinionDataset(Dataset):
@@ -46,13 +46,13 @@ def load_opinions():
     normal_opinions = normal_opinions[config.get_value("content")].values.tolist()
 
     # Do szybkich testów
-    normal_opinions = normal_opinions[:500]
+    normal_opinions = normal_opinions[:]
     return normal_opinions, anomaly_opinions
 
 
 def split_data(normal_opinions, anomaly_opinions):
     # Podział normalnych opinii na część testową i treningowa
-    normal_opinions, normal_opinions_test = train_test_split(normal_opinions, test_size=config.get_value("test_size"))
+    normal_opinions, normal_opinions_test = train_test_split(normal_opinions, test_size=config.get_value("test_size"), random_state=config.get_value("seed"))
 
     print("Ilość wykorzystanych opinii normalnych do treningu: ", len(normal_opinions))
     print("Ilość wykorzystanych opinii normalnych do testu: ", len(normal_opinions_test))
@@ -71,7 +71,7 @@ def preprocess_review(review):
 # Wyrównanie rozmiarów sekwencji wektorów
 def pad_sequence(sequence, max_len):
     if sequence.size(0) == 0:
-        return torch.zeros(max_len, )
+        return torch.zeros(max_len, config.get_value("spacy_size"))
     else:
         padded_seq = torch.zeros(max_len, sequence.size(1))
         padded_seq[:sequence.size(0)] = sequence
