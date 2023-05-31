@@ -34,7 +34,7 @@ def predict(input_data):
     mse_loss = nn.MSELoss(reduction=config.get_value("reduction"))
     loss_values = mse_loss(output, input_data).mean()
     is_anomalous = torch.where(loss_values > threshold, 1, 0)
-    print("Czy model wskazał anomalie: ", is_anomalous.item() == 1)
+    print("Czy to anomalia: ", is_anomalous.item() == 1)
 
 flag = True
 print("Witaj!")
