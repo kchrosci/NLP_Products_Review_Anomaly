@@ -4,3 +4,8 @@ numpy
 torch
 pandas
 sklearn
+matplotlib.pyplot
+seaborn
+tabulate
+json
+scikit-learn

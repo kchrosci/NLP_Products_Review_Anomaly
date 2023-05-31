@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 
+# Czyść pliki CSV, do użycia przy nowych plikach CSV!! Inaczej nie trzeba używać
 def drop_unused_columns_anomaly(input_file, output_file):
     df = pd.read_csv(input_file, sep=',')
     #df = df.loc[df['language'] == "POL"]

@@ -1,5 +1,5 @@
 {
-    "spacy": "pl_core_news_lg",
+    "spacy": "pl_core_news_md",
     "anomaly_opinions": "csv_data/preprocesed_files/anomaly_opinions.csv",
     "normal_opinions": "csv_data/preprocesed_files/normal_opinions.csv",
     "quantile": 0.9,
@@ -12,6 +12,8 @@
     "spacy_size": 300,
     "seed": 421,
     "content": "content",
-    "threshold": 0.1109878271818161,
-    "reduction": "none"
+    "threshold": 0.11325900256633759,
+    "reduction": "none",
+    "fast_mode": 0,
+    "fast_mode_set": 2000
 }

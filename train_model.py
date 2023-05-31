@@ -33,7 +33,6 @@ class OpinionDataset(Dataset):
         doc = nlp(preprocess_review(self.opinions[idx]))
         sequence = np.array([token.vector for token in doc])
         sequence = torch.tensor(sequence, dtype=torch.float32)
-        #sequence = nn.functional.normalize(sequence, p=float('inf'), dim=1)
         return sequence
 
 
@@ -46,7 +45,9 @@ def load_opinions():
     normal_opinions = normal_opinions[config.get_value("content")].values.tolist()
 
     # Do szybkich testów
-    normal_opinions = normal_opinions[:]
+    if(config.get_value("fast_mode") == 1):
+        normal_opinions = normal_opinions[:config.get_value("fast_mode_set")]
+
     return normal_opinions, anomaly_opinions
 
 

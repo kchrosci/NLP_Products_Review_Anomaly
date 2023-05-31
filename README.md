@@ -82,6 +82,9 @@ lr - ustawianie learning rate<br />
 batch_size_train - ustawianie batch size<br />
 test_size - ustawianie % opinii przeznaczonych na test z zbioru normalnych opinii<br />
 seed - ziarno do powtarzalności wyników liczb<br />
+fast_mode - pozwala na uruchomienie treningu na mniejszej partii danych, co pozwala na szybszy
+(mniej dokładny trening), fast_mode: 1 - szybki trening, fast_mode: 0 - normalny trening <br />
+fast_mode_set - pozwala na wpisanie ilości rekordów do szybkie treningu <br />
 
 ## Instrukcja Spacy
 
