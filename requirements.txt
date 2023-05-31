@@ -8,3 +8,4 @@ matplotlib.pyplot
 seaborn
 tabulate
 json
+scikit-learn
